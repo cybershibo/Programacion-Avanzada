@@ -24,19 +24,23 @@ class ArduinoGUI:
         self.connect_button.grid(row=0, column=3, pady=5, padx=10)
 
         self.pin_states = ["LOW"] * 8
-        self.output_buttons = []
-        self.circle_spacing = 10  # Ajusta la distancia entre los círculos y los botones
+        self.programmable_states = [False] * 12
 
         for i in range(8):
-            btn_text = f"Pin {i}"
-            btn = ttk.Button(self.master, text=btn_text, command=lambda index=i: self.toggle_pin(index))
+            btn_text = f"Output Pin {i}"
+            btn = ttk.Button(self.master, text=btn_text, command=lambda index=i: self.toggle_output_pin(index))
             btn.grid(row=i + 1, column=0, pady=5, padx=10)
 
+        for i in range(8, 20):
+            btn_text = f"Programmable Pin {i - 8}"
+            btn = ttk.Button(self.master, text=btn_text, command=lambda index=i: self.toggle_programmable_pin(index - 8))
+            btn.grid(row=i - 7, column=1, pady=5, padx=10)
+
         self.terminal_label = ttk.Label(self.master, text="Terminal:")
-        self.terminal_label.grid(row=12, column=0, pady=5, padx=10)
+        self.terminal_label.grid(row=21, column=0, pady=5, padx=10)
 
         self.terminal_text = scrolledtext.ScrolledText(self.master, height=10, width=40, wrap=tk.WORD)
-        self.terminal_text.grid(row=13, column=0, pady=5, padx=10, columnspan=4)
+        self.terminal_text.grid(row=22, column=0, pady=5, padx=10, columnspan=4)
 
         self.refresh_serial_ports()  # Initial refresh
         self.auto_refresh_serial_ports()  # Start automatic refresh
@@ -54,12 +58,19 @@ class ArduinoGUI:
         except Exception as e:
             self.log_to_terminal(f"Error connecting to Arduino: {str(e)}")
 
-    def toggle_pin(self, pin_index):
+    def toggle_output_pin(self, pin_index):
         current_state = self.pin_states[pin_index]
         new_state = "HIGH" if current_state == "LOW" else "LOW"
         command = {"command": "digital_outputs", "pin": pin_index, "message": new_state}
         self.send_command(command)
         self.pin_states[pin_index] = new_state
+
+    def toggle_programmable_pin(self, pin_index):
+        current_state = self.programmable_states[pin_index]
+        new_state = "HIGH" if current_state == "LOW" else "LOW"
+        command = {"command": "digital_prog", "pin": pin_index, "message": new_state}
+        self.send_command(command)
+        self.programmable_states[pin_index] = new_state
 
     def send_command(self, command):
         if self.ser:
