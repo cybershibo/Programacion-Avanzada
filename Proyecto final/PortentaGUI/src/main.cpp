@@ -1,76 +1,65 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
-#include <Arduino_MachineControl.h>
-#include <rs485.h>
 #include <Wire.h>
-
-#define BOARD_TYPE "Portenta H7"
-#define DEVICE_ID 1
-#define jsonBufferSize 256
-#define DEVICE_BAUDRATE 9600
-
-const int numPins = 8;
-int pinStates[numPins] = {0}; // Initial pin states
-
-struct DeviceStatus {
-  int pinStates[numPins];
-};
-
-void handleCommand(String jsonData);
-void sendDeviceStatus();
+#include <Arduino_MachineControl.h>
+#include "ArduinoJson.h"
 
 using namespace machinecontrol;
 
+struct CommandData {
+  String command;
+  int pin;
+  String message;
+};
+
+// Variable para almacenar el estado de los pines
+int pinStates[8] = {LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW};
+
 void setup() {
-  Serial.begin(DEVICE_BAUDRATE);
+  Serial.begin(9600);
+  Wire.begin();
+
+  // Inicializar las salidas digitales
   digital_outputs.setLatch();
-  digital_outputs.setAll(0);
+
+  // Inicializar los pines de entrada digital
+  if (!digital_inputs.init()) {
+    Serial.println("Error initializing digital inputs!");
+  }
+
+  for (int i = 0; i < 8; ++i) {
+    digital_inputs.pinMode(i, INPUT_PULLUP);
+  }
+
+  // Inicializar los pines programables
+  if (!digital_programmables.init()) {
+    Serial.println("Error initializing digital programmables!");
+  }
+
+  digital_programmables.setLatch();
 }
+
+CommandData commandReceived;
 
 void loop() {
   if (Serial.available() > 0) {
-    String receivedData = Serial.readStringUntil('\n');
-    handleCommand(receivedData);
-  }
-}
+    String data = Serial.readStringUntil('}');
+    Serial.println(data);
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, data);
+    commandReceived.command = doc["command"].as<String>();
+    commandReceived.pin = doc["pin"];
+    commandReceived.message = doc["message"].as<String>();
 
-void handleCommand(String jsonData) {
-  DynamicJsonDocument doc(128);
-  deserializeJson(doc, jsonData);
-
-  int command = doc["command"];
-  int pinIndex = doc["pinIndex"];
-
-  if (pinIndex >= 0 && pinIndex < numPins) {
-    switch (command) {
-      case 1: // Example: Turn on pin
-        digital_outputs.set(pinIndex, 1);
-        pinStates[pinIndex] = 1;
-        break;
-      case 2: // Example: Turn off pin
-        digital_outputs.set(pinIndex, 0);
-        pinStates[pinIndex] = 0;
-        break;
-      // Add more cases as needed for your commands
+    // Aplicar el comando recibido
+    if (commandReceived.command == "digital_outputs") {
+      if(commandReceived.message == "HIGH")
+        digital_outputs.set(commandReceived.pin, HIGH);
+      else
+        digital_outputs.set(commandReceived.pin, LOW); 
     }
-
-    // Send device status back to Python GUI
-    sendDeviceStatus();
-  }
-}
-
-void sendDeviceStatus() {
-  DeviceStatus deviceStatus;
-  for (int i = 0; i < numPins; ++i) {
-    deviceStatus.pinStates[i] = pinStates[i];
   }
 
-  DynamicJsonDocument doc(128);
-  for (int i = 0; i < numPins; ++i) {
-    doc["pinStates"][i] = deviceStatus.pinStates[i];
+  if (commandReceived.command == "digital_inputs") {
+    // Realizar acciones específicas para la entrada digital según sea necesario
   }
-
-  String jsonData;
-  serializeJson(doc, jsonData);
-  Serial.println(jsonData);
 }
