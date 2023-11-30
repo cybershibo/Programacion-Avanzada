@@ -26,6 +26,9 @@ struct CommandData {
   String message;
 };
 
+struct readInputData {
+  String command;
+};
 // Variable para almacenar el estado de los pines
 int pinStates[8] = {LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW};
 
@@ -51,12 +54,29 @@ void setup() {
 }
 
 CommandData commandReceived;
+readInputData readInput;
+
+void sendInputStates() {
+  uint32_t inputs = digital_inputs.readAll();
+
+  DynamicJsonDocument doc(1024);
+  JsonObject root = doc.to<JsonObject>();
+
+  for (int i = 0; i < 8; ++i) {
+    root["Input_" + String(i)] = (inputs & (1 << i)) >> i;
+  }
+
+  serializeJson(doc, Serial);
+  Serial.println();
+  delay(100);  // Añadimos un pequeño retraso
+}
 
 void productionCode(){
     String data = Serial.readStringUntil('}');
     Serial.println(data);
     DynamicJsonDocument doc(1024);
     deserializeJson(doc, data);
+    readInput.command = doc["command"].as<String>();
     commandReceived.command = doc["command"].as<String>();
     commandReceived.pin = doc["pin"].as<int>();
     commandReceived.message = doc["message"].as<String>();
@@ -76,21 +96,15 @@ if(commandReceived.command == "digital_prog"){
         digital_programmables.set(commandReceived.pin, LOW); 
 }
 
-  if (commandReceived.command == "digital_inputs") {
-    uint32_t inputs = digital_inputs.readAll();
-    bool digital_input_ch00 = inputs & (1 << DIN_READ_CH_PIN_00) >> DIN_READ_CH_PIN_00;
-    bool digital_input_ch01 = inputs & (1 << DIN_READ_CH_PIN_01) >> DIN_READ_CH_PIN_01;
-    bool digital_input_ch02 = inputs & (1 << DIN_READ_CH_PIN_02) >> DIN_READ_CH_PIN_02;
-    bool digital_input_ch03 = inputs & (1 << DIN_READ_CH_PIN_03) >> DIN_READ_CH_PIN_03;
-    bool digital_input_ch04 = inputs & (1 << DIN_READ_CH_PIN_04) >> DIN_READ_CH_PIN_04;
-    bool digital_input_ch05 = inputs & (1 << DIN_READ_CH_PIN_05) >> DIN_READ_CH_PIN_05;
-    bool digital_input_ch06 = inputs & (1 << DIN_READ_CH_PIN_06) >> DIN_READ_CH_PIN_06;
-    bool digital_input_ch07 = inputs & (1 << DIN_READ_CH_PIN_07) >> DIN_READ_CH_PIN_07;
+  if(readInput.command == "digital_inputs")
+    sendInputStates();
   
-  }
 }
 
 void debuingCode(){
+
+  sendInputStates();
+
   for(int x = 0; x < 8; x++){
       bool readPin = digital_inputs.read(x);
       Serial.print(String(readPin) + " ");
