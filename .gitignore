@@ -1,0 +1,27 @@
+# PyInstaller
+__pycache__/
+build/
+dist/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# PlatformIO
+.pio/
+lib/
+test/
+docs/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Environment
+.env
+
+# Others
+.DS_Store
+*.spec
