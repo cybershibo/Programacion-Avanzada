@@ -7,6 +7,8 @@
 
 using namespace machinecontrol;
 
+int channel_values[8];
+
 int PROG_PINS[12] = {IO_WRITE_CH_PIN_00, 
                       IO_WRITE_CH_PIN_01, 
                       IO_WRITE_CH_PIN_02, 
@@ -31,6 +33,8 @@ struct readInputData {
 };
 // Variable para almacenar el estado de los pines
 int pinStates[8] = {LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW};
+
+int pinStatesRead[8];
 
 void setup() {
   Serial.begin(9600);
@@ -58,17 +62,39 @@ readInputData readInput;
 
 void sendInputStates() {
   uint32_t inputs = digital_inputs.readAll();
+  
+    channel_values[0] = (inputs & (1 << DIN_READ_CH_PIN_00)) >> DIN_READ_CH_PIN_00;
+    channel_values[1] = (inputs & (1 << DIN_READ_CH_PIN_01)) >> DIN_READ_CH_PIN_01;
+    channel_values[2] = (inputs & (1 << DIN_READ_CH_PIN_02)) >> DIN_READ_CH_PIN_02;
+    channel_values[3] = (inputs & (1 << DIN_READ_CH_PIN_03)) >> DIN_READ_CH_PIN_03;
+    channel_values[4] = (inputs & (1 << DIN_READ_CH_PIN_04)) >> DIN_READ_CH_PIN_04;
+    channel_values[5] = (inputs & (1 << DIN_READ_CH_PIN_05)) >> DIN_READ_CH_PIN_05;
+    channel_values[6] = (inputs & (1 << DIN_READ_CH_PIN_06)) >> DIN_READ_CH_PIN_06;
+    channel_values[7] = (inputs & (1 << DIN_READ_CH_PIN_07)) >> DIN_READ_CH_PIN_07;
 
-  DynamicJsonDocument doc(1024);
-  JsonObject root = doc.to<JsonObject>();
+#ifdef DEBUG    
+  for(int x = 0; x < 8; x++){
+    Serial.print("CH0" + String(x) + ": ");
+    Serial.println(channel_values[x]);
+  }
+  Serial.println();
+#endif
+  // Crear un objeto JSON
+  StaticJsonDocument<200> jsonDocument;
 
-  for (int i = 0; i < 8; ++i) {
-    root["Input_" + String(i)] = (inputs & (1 << i)) >> i;
+  // Agregar valores al objeto JSON
+  for(int x = 0; x < 8; x++) {
+    String key = "CH0" + String(x);
+    jsonDocument[key] = channel_values[x];
   }
 
-  serializeJson(doc, Serial);
-  Serial.println();
-  delay(100);  // Añadimos un pequeño retraso
+  // Serializar el objeto JSON en una cadena
+  String jsonString;
+  serializeJson(jsonDocument, jsonString);
+
+  // Enviar la cadena JSON a través del puerto serie
+  Serial.println(jsonString);
+
 }
 
 void productionCode(){
@@ -95,8 +121,6 @@ if(commandReceived.command == "digital_prog"){
       else
         digital_programmables.set(commandReceived.pin, LOW); 
 }
-
-  if(readInput.command == "digital_inputs")
     sendInputStates();
   
 }
@@ -105,24 +129,7 @@ void debuingCode(){
 
   sendInputStates();
 
-  for(int x = 0; x < 8; x++){
-      bool readPin = digital_inputs.read(x);
-      Serial.print(String(readPin) + " ");
-    delay(150);
-  }
   Serial.println();
-  for(int x = 0; x<=7; x++){
-    if(pinStates[x] == LOW){
-      pinStates[x] = HIGH;
-      digital_outputs.set(x, HIGH);
-      delay(150);
-    }
-      else{
-        pinStates[x] = LOW;
-        digital_outputs.set(x, LOW);
-        delay(150);
-      }
-  }
     digital_outputs.setAll(LOW);
     delay(100);
         digital_programmables.writeAll(SWITCH_ON_ALL);
@@ -177,7 +184,7 @@ void debuingCode(){
         else if(digital_programmables.read(IO_READ_CH_PIN_07) == LOW){
           digital_outputs.set(7, LOW);
         }
-
+/*
   uint32_t inputs = digital_inputs.readAll();
   Serial.println("CH00: " + String((inputs & (1 << DIN_READ_CH_PIN_00)) >> DIN_READ_CH_PIN_00));
   Serial.println("CH01: " + String((inputs & (1 << DIN_READ_CH_PIN_01)) >> DIN_READ_CH_PIN_01));
@@ -188,7 +195,8 @@ void debuingCode(){
   Serial.println("CH06: " + String((inputs & (1 << DIN_READ_CH_PIN_06)) >> DIN_READ_CH_PIN_06));
   Serial.println("CH07: " + String((inputs & (1 << DIN_READ_CH_PIN_07)) >> DIN_READ_CH_PIN_07));
   Serial.println();
-
+  delay(1000);
+*/
 }
 
 void loop() {
@@ -197,4 +205,5 @@ void loop() {
   #else
     productionCode();
   #endif
+  Serial.flush();
 }
